@@ -1,5 +1,6 @@
 package com.senac.tsi.MinhaPrimeiraApi;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,11 +44,16 @@ public class EmployeeController {
 
 
     @DeleteMapping ("/employee/{id}")
-    public void deleteEmployeeById(@PathVariable long id) {
-        repository.deleteById(id);
+    public ResponseEntity deleteEmployeeById(@PathVariable long id) {
+         return repository.findById(id).map(
+                 employee -> {
+                     repository.deleteById(id);
+                     return ResponseEntity.status(204).build();
+                 })
+                 .orElseGet(() -> ResponseEntity.status(404).build());
+
+
+
     }
-
-
-
 
 }
