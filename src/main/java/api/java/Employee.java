@@ -10,7 +10,7 @@ import java.util.Objects;
 public class Employee {
     private @Id
     @GeneratedValue long id;
-    private String name;
+    private String  name;
     private String role;
 
     public Employee() {

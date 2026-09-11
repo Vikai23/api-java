@@ -1,11 +1,14 @@
 package api.java;
 
+import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.swing.text.html.parser.Entity;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
@@ -15,59 +18,55 @@ public class EmployeeController {
 
     private final EmployeeRepository repository;
 
-    public EmployeeController(EmployeeRepository repository){
+    private final EmployeeModelAssembler assembler;
+
+    EmployeeController(EmployeeRepository repository, EmployeeModelAssembler assembler) {
         this.repository = repository;
+        this.assembler = assembler;
     }
 
-    @GetMapping("/employee")
-    public List<Employee> GetAll(){
-        var employees = repository.findAll()
-                .stream().map(employee -> {
-                  linkTo(methodOn(EmployeeController.class)
-                          .getEmployeeById(employee.getId()))
-                           .withSelfRel(),
-                   linkTo(methodOn(EmployeeController.class).GetAll()).withRel("employee") ;
-                });
+    @GetMapping("/employees")
+    CollectionModel<EntityModel<Employee>> getAllEmployees() {
 
+        List<EntityModel<Employee>> employees = repository.findAll().stream() //
+                .map(assembler::toModel) //
+                .collect(Collectors.toList());
+
+        return CollectionModel.of(employees, linkTo(methodOn(EmployeeController.class).getAllEmployees()).withSelfRel());
     }
 
- @GetMapping("/employee/{id}")
-    public EntityModel <Employee> getEmployeeById (@PathVariable long id) {
-        var employee =  repository.findById(id).orElseThrow(() -> new EmployeeNotFoundException(id));
 
-        return EntityModel.of(employee, linkTo(methodOn(EmployeeController.class).getEmployeeById(id)).withSelfRel(),
-       linkTo(methodOn(EmployeeController.class).GetAll()).withRel("employee"));
- };
-
-    @PostMapping("/employee")
-    public Employee createEmployee(@RequestBody Employee newEmployee){
-        return repository.save(newEmployee);
+    @PostMapping("/employees")
+    public ResponseEntity<Employee> newEmployee(@RequestBody Employee newEmployee){
+        repository.save(newEmployee);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newEmployee);
     }
 
-    @PutMapping("/employee/{id}")
-    public  Employee updateOrCreateEmployeeById(@RequestBody Employee newEmployee , @PathVariable long id) {
-        return  repository.findById(id)
+    @GetMapping("/employees/{id}")
+    EntityModel<Employee> getEmployeeById(@PathVariable Long id) {
+
+        Employee employee = repository.findById(id) //
+                .orElseThrow(() -> new EmployeeNotFoundException(id));
+
+        return assembler.toModel(employee);
+    }
+
+    @PutMapping("/employees/{id}")
+    public Employee updateOrCreateEmployee(@RequestBody Employee newEmployee, @PathVariable Long id){
+        return repository.findById(id)
                 .map(employee -> {
                     employee.setName(newEmployee.getName());
                     employee.setRole(newEmployee.getRole());
                     return repository.save(employee);
-                }).orElseGet(() ->
-                repository.save(newEmployee));
-
+                })
+                .orElseGet(() -> {
+                    return repository.save(newEmployee);
+                });
     }
 
-
-    @DeleteMapping ("/employee/{id}")
-    public ResponseEntity deleteEmployeeById(@PathVariable long id) {
-         return repository.findById(id).map(
-                 employee -> {
-                     repository.deleteById(id);
-                     return ResponseEntity.status(204).build();
-                 })
-                 .orElseGet(() -> ResponseEntity.status(404).build());
-
-
-
+    @DeleteMapping("/employee/{id}")
+    public void deleteEmployee(@PathVariable Long id)
+    {
+        repository.deleteById(id);
     }
-
 }
